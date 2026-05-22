@@ -24,17 +24,65 @@ const imageInput    = document.getElementById("imageInput");
 const imagePreview  = document.getElementById("imagePreview");
 const analyzeButton = document.getElementById("analyzeButton");
 const resultDisplay = document.getElementById("result");
+const pasteZone     = document.getElementById("pasteZone");
+const pasteLabel    = document.getElementById("pasteLabel");
 
-// ── Image preview ─────────────────────────────────────────────────────────────
+// ── Display names (clean labels for each model class) ────────────────────────
+const DISPLAY_NAMES = {
+  "Acne":                                        "Acne",
+  "Actinic Keratosis_ Basal cell carcinoma":     "Actinic Keratosis / Basal Cell Carcinoma",
+  "Ba Impetigo":                                 "Bacterial Impetigo",
+  "Eczema":                                      "Eczema",
+  "Healthy_Normal Skin":                         "Healthy Skin",
+  "Melanoma Skin Cancer Nevi And Moles":         "Melanoma",
+  "Psoriasis":                                   "Psoriasis",
+  "Vitiligo":                                    "Vitiligo",
+  "Warts Molluscum And Other Viral Infections":  "Warts & Molluscum",
+};
+
+// ── Clipboard paste state ─────────────────────────────────────────────────────
+let pastedFile = null;
+
+function showImagePreview(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    imagePreview.src = e.target.result;
+    imagePreview.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+function setPasteZonePasted() {
+  pasteZone.classList.add("pasted");
+  pasteLabel.textContent = "✓ Image pasted — ready to analyse";
+}
+
+function resetPasteZone() {
+  pasteZone.classList.remove("pasted");
+  pasteLabel.innerHTML = 'or press <kbd>Ctrl+V</kbd> to paste from clipboard';
+}
+
+// ── Image preview — file input ────────────────────────────────────────────────
 imageInput.addEventListener("change", function () {
   const file = imageInput.files[0];
   if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      imagePreview.src = e.target.result;
-      imagePreview.style.display = "block";
-    };
-    reader.readAsDataURL(file);
+    pastedFile = null;
+    resetPasteZone();
+    showImagePreview(file);
+  }
+});
+
+// ── Image preview — clipboard paste ──────────────────────────────────────────
+document.addEventListener("paste", function (event) {
+  const items = event.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith("image")) {
+      pastedFile = item.getAsFile();
+      showImagePreview(pastedFile);
+      setPasteZonePasted();
+      break;
+    }
   }
 });
 
@@ -135,13 +183,13 @@ const DISEASE_INFO = {
 
 // ── Analyse button ────────────────────────────────────────────────────────────
 analyzeButton.addEventListener("click", async () => {
-  const file = imageInput.files[0];
+  const file = pastedFile || imageInput.files[0];
   if (!file) {
-    resultDisplay.innerHTML = '<span style="color:yellow;">Please select an image first.</span>';
+    resultDisplay.innerHTML = '<div class="result-warn">Please select or paste an image first.</div>';
     return;
   }
 
-  resultDisplay.innerHTML = "Analysing…";
+  resultDisplay.innerHTML = '<div class="result-confidence">Analysing…</div>';
   document.getElementById("newbutton").innerHTML = "";
   document.getElementById("info").innerHTML = "";
   document.getElementById("ytvid").innerHTML = "";
@@ -155,34 +203,39 @@ analyzeButton.addEventListener("click", async () => {
     data = await response.json();
   } catch (err) {
     resultDisplay.innerHTML =
-      '<span style="color:yellow;">Could not reach the server. Please try again later.</span>';
+      '<div class="result-warn">Could not reach the server. Please try again later.</div>';
     return;
   }
 
   if (data.error) {
-    resultDisplay.innerHTML = `<span style="color:yellow;">${data.error}</span>`;
+    resultDisplay.innerHTML = `<div class="result-warn">${data.error}</div>`;
     return;
   }
 
-  const predictions = data.predictions;  // sorted descending by confidence
-  const top = predictions[0];
+  const predictions = data.predictions;   // sorted descending by confidence
+  const top         = predictions[0];
+  const topName     = DISPLAY_NAMES[top.class] || top.class;
+  const topPct      = (top.confidence * 100).toFixed(1);
 
-  // Show top result (or top-2 if confidence is low)
-  let resultText = `${top.class}: ${(top.confidence * 100).toFixed(1)}%<br>`;
-  if (top.confidence <= 0.79 && predictions.length > 1) {
-    const second = predictions[1];
-    resultText += `${second.class}: ${(second.confidence * 100).toFixed(1)}%<br>`;
+  if (top.confidence > 0.79) {
+    resultDisplay.innerHTML = `
+      <div class="result-primary">${topName}</div>
+      <div class="result-confidence">${topPct}% confidence</div>`;
+  } else {
+    const second     = predictions[1];
+    const secondName = DISPLAY_NAMES[second.class] || second.class;
+    const secondPct  = (second.confidence * 100).toFixed(1);
+    resultDisplay.innerHTML = `
+      <div class="result-primary">${topName}</div>
+      <div class="result-confidence">${topPct}% — most likely</div>
+      <div class="result-also">Also possible: <strong>${secondName}</strong> &mdash; ${secondPct}%</div>`;
   }
-  resultDisplay.innerHTML = resultText;
 
-  // Look up disease info
+  // Disease-specific tips and video buttons
   const info = DISEASE_INFO[top.class];
   if (info) {
     document.getElementById("newbutton").innerHTML = info.buttons;
-
-    const tipsList = info.tips
-      .map((t, i) => `${i + 1}. ${t}`)
-      .join("<br>");
+    const tipsList = info.tips.map((t, i) => `${i + 1}. ${t}`).join("<br>");
     document.getElementById("info").innerHTML =
       "<h2>Please consult a medical specialist, but here are some standard tips:</h2><br>" +
       tipsList;

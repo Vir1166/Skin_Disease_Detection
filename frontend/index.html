@@ -117,9 +117,13 @@
   <center>
   <h2 style="color: white;">Upload an Image for Analysis</h2>
   <input type="file" id="imageInput" accept="image/*" />
+  <div id="pasteZone">
+    <span id="pasteIcon">📋</span>
+    <span id="pasteLabel">or press <kbd>Ctrl+V</kbd> to paste from clipboard</span>
+  </div>
   <img id="imagePreview" src="" alt="Image Preview" style="display:none; width:500px; border: 3px black solid; border-radius: 15px;" /><br>
   <button id="analyzeButton">Click to Analyze</button>
-  <p id="result" style="color: white;"></p>
+  <div id="result"></div>
   <div id="newbutton"></div>
   <p id="info"></p>
 </center>
