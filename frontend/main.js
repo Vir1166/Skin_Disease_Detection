@@ -151,7 +151,7 @@ analyzeButton.addEventListener("click", async () => {
 
   let data;
   try {
-    const response = await fetch("https://aaryan-athena-skin-be.hf.space/predict", { method: "POST", body: formData });
+    const response = await fetch("https://vh-2011-skin-be.hf.space/predict", { method: "POST", body: formData });
     data = await response.json();
   } catch (err) {
     resultDisplay.innerHTML =
