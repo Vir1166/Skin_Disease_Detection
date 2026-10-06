@@ -73,11 +73,15 @@ def predict():
         return jsonify({"error": "No image file provided."}), 400
 
     try:
-        img    = Image.open(io.BytesIO(request.files["image"].read())).convert("RGB")
-        tensor = TRANSFORM(image=np.array(img))["image"].unsqueeze(0).to(DEVICE)
-    except Exception as e:
-        return jsonify({"error": f"Could not process image: {e}"}), 400
-    predictions = sorted(
+    img = Image.open(io.BytesIO(request.files["image"].read())).convert("RGB")
+    tensor = TRANSFORM(image=np.array(img))["image"].unsqueeze(0).to(DEVICE)
+except Exception as e:
+    return jsonify({"error": f"Could not process image: {e}"}), 400
+
+with torch.no_grad():
+    probs = F.softmax(model(tensor), dim=1)[0]
+
+predictions = sorted(
         [{"class": config.CLASS_NAMES[i], "confidence": round(probs[i].item(), 4)}
          for i in range(config.NUM_CLASSES)],
         key=lambda x: x["confidence"],
