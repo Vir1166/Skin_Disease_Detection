@@ -26,7 +26,7 @@ import config
 from model import load_model
 
 HF_MODEL_URL = (
-    "https://huggingface.co/aaryan-athena/skin-disease-model/resolve/main/best_model.pth"
+    "https://huggingface.co/vh-2011/skin-disease-model/resolve/main/best_model.pth"
 )
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -77,10 +77,6 @@ def predict():
         tensor = TRANSFORM(image=np.array(img))["image"].unsqueeze(0).to(DEVICE)
     except Exception as e:
         return jsonify({"error": f"Could not process image: {e}"}), 400
-
-    with torch.no_grad():
-        probs = F.softmax(model(tensor), dim=1)[0]
-
     predictions = sorted(
         [{"class": config.CLASS_NAMES[i], "confidence": round(probs[i].item(), 4)}
          for i in range(config.NUM_CLASSES)],
