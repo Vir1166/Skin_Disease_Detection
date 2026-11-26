@@ -26,6 +26,14 @@ const analyzeButton = document.getElementById("analyzeButton");
 const resultDisplay = document.getElementById("result");
 const pasteZone     = document.getElementById("pasteZone");
 const pasteLabel    = document.getElementById("pasteLabel");
+let analysisGeneration = 0;
+
+function clearAnalysisOutput() {
+  resultDisplay.replaceChildren();
+  document.getElementById("newbutton").replaceChildren();
+  document.getElementById("info").replaceChildren();
+  document.getElementById("ytvid").replaceChildren();
+}
 
 // ── Display names (clean labels for each model class) ────────────────────────
 const DISPLAY_NAMES = {
@@ -66,6 +74,8 @@ function resetPasteZone() {
 imageInput.addEventListener("change", function () {
   const file = imageInput.files[0];
   if (file) {
+    analysisGeneration++;
+    clearAnalysisOutput();
     pastedFile = null;
     resetPasteZone();
     showImagePreview(file);
@@ -79,6 +89,9 @@ document.addEventListener("paste", function (event) {
   for (const item of items) {
     if (item.type.startsWith("image")) {
       pastedFile = item.getAsFile();
+      if (!pastedFile) continue;
+      analysisGeneration++;
+      clearAnalysisOutput();
       showImagePreview(pastedFile);
       setPasteZonePasted();
       break;
@@ -190,6 +203,7 @@ analyzeButton.addEventListener("click", async () => {
   }
 
   resultDisplay.innerHTML = '<div class="result-confidence">Analysing…</div>';
+  const requestGeneration = ++analysisGeneration;
   document.getElementById("newbutton").innerHTML = "";
   document.getElementById("info").innerHTML = "";
   document.getElementById("ytvid").innerHTML = "";
@@ -205,12 +219,15 @@ analyzeButton.addEventListener("click", async () => {
       throw new Error(data.error || `The analysis server returned HTTP ${response.status}.`);
     }
   } catch (err) {
+    if (requestGeneration !== analysisGeneration) return;
     const warning = document.createElement("div");
     warning.className = "result-warn";
     warning.textContent = err.message || "Could not reach the server. Please try again later.";
     resultDisplay.replaceChildren(warning);
     return;
   }
+
+  if (requestGeneration !== analysisGeneration) return;
 
   if (!Array.isArray(data.predictions) || data.predictions.length === 0) {
     resultDisplay.innerHTML = '<div class="result-warn">The server returned no predictions. Please try again later.</div>';
