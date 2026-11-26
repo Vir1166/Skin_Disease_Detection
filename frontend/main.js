@@ -200,15 +200,20 @@ analyzeButton.addEventListener("click", async () => {
   let data;
   try {
     const response = await fetch("https://vh-2011-skin-be.hf.space/predict", { method: "POST", body: formData });
-    data = await response.json();
+    data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `The analysis server returned HTTP ${response.status}.`);
+    }
   } catch (err) {
-    resultDisplay.innerHTML =
-      '<div class="result-warn">Could not reach the server. Please try again later.</div>';
+    const warning = document.createElement("div");
+    warning.className = "result-warn";
+    warning.textContent = err.message || "Could not reach the server. Please try again later.";
+    resultDisplay.replaceChildren(warning);
     return;
   }
 
-  if (data.error) {
-    resultDisplay.innerHTML = `<div class="result-warn">${data.error}</div>`;
+  if (!Array.isArray(data.predictions) || data.predictions.length === 0) {
+    resultDisplay.innerHTML = '<div class="result-warn">The server returned no predictions. Please try again later.</div>';
     return;
   }
 
